@@ -8,8 +8,6 @@ Requires being logged into claude.ai in Chrome.
 """
 
 import json
-import os
-from typing import Any
 
 import browser_cookie3
 from curl_cffi import requests
@@ -19,18 +17,6 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("claude-desktop-reader")
 
 CLAUDE_API_BASE = "https://claude.ai/api"
-
-
-def get_session_cookie() -> str:
-    """Get the sessionKey cookie from Chrome browser."""
-    try:
-        cj = browser_cookie3.chrome(domain_name='.claude.ai')
-        for cookie in cj:
-            if cookie.name == 'sessionKey':
-                return cookie.value
-        raise RuntimeError("sessionKey cookie not found in Chrome")
-    except Exception as e:
-        raise RuntimeError(f"Could not get session cookie from Chrome: {e}")
 
 
 def get_all_cookies() -> str:
@@ -95,7 +81,7 @@ def get_organization_id() -> str:
             response = requests.get(url, headers=headers, impersonate="chrome120")
             if response.status_code == 200:
                 return org_id
-        except:
+        except Exception:
             continue
 
     # Last resort: return first org

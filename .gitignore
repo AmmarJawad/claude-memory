@@ -1,0 +1,57 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.*.local
+*.env
+
+# Secrets and credentials - NEVER commit these
+secrets.json
+credentials.json
+*.pem
+*.key
+*.crt
+*_secret*
+*_token*
+api_key*
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# mypy
+.mypy_cache/
