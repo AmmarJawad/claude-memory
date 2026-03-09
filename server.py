@@ -54,38 +54,37 @@ def make_api_request(endpoint: str) -> dict:
 
 
 def get_organization_id() -> str:
-    """Get the user's personal organization ID."""
+    """Get the organization ID that contains conversations.
+
+    Tries each org with 'chat' capability and returns the first one
+    that actually has conversations. Falls back to the first chat-capable org.
+    """
     orgs = make_api_request("organizations")
     if not orgs:
         raise RuntimeError("No organizations found")
 
-    # Try to find personal org (contains user's email or "Organization" suffix)
-    for org in orgs:
-        name = org.get('name', '')
-        # Personal orgs typically have format "email's Organization"
-        if "'s Organization" in name or "@" in name:
-            return org['uuid']
+    # Filter to orgs with chat capability
+    chat_orgs = [
+        org for org in orgs
+        if 'chat' in org.get('capabilities', [])
+    ]
+    if not chat_orgs:
+        chat_orgs = orgs
 
-    # Fallback: try each org and return first one that works
-    cookie_header = get_all_cookies()
-    for org in orgs:
+    # Return the org that actually has conversations
+    for org in chat_orgs:
         org_id = org['uuid']
         try:
-            url = f"{CLAUDE_API_BASE}/organizations/{org_id}/chat_conversations"
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Referer': 'https://claude.ai/chats',
-                'Cookie': cookie_header
-            }
-            response = requests.get(url, headers=headers, impersonate="chrome120")
-            if response.status_code == 200:
+            convos = make_api_request(
+                f"organizations/{org_id}/chat_conversations"
+            )
+            if convos:
                 return org_id
-        except Exception:
+        except RuntimeError:
             continue
 
-    # Last resort: return first org
-    return orgs[0]['uuid']
+    # Fallback: return first chat-capable org
+    return chat_orgs[0]['uuid']
 
 
 @mcp.tool()
