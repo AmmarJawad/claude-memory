@@ -34,6 +34,7 @@ Configure all integrations (Confluence, Jira, Slack, browser extensions) in Clau
 |------|-------------|
 | `resume_session` | **Single call at session start** — returns checkpoint + linked conversations |
 | `save_session_checkpoint` | Save current session state to disk |
+| `get_latest_session_checkpoint` | Retrieve the most recent checkpoint without resuming |
 | `list_session_checkpoints` | Browse checkpoint history for a project |
 | `list_all_projects` | List all projects that have stored data |
 | `cleanup_session_checkpoints` | Delete old checkpoints, keeping only the N most recent |
