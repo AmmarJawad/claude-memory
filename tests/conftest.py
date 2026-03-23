@@ -3,6 +3,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from context_bridge.conversations_api import _get_auth
+
+
+@pytest.fixture(autouse=True)
+def reset_auth_singleton():
+    """Reset the _get_auth singleton between tests."""
+    if hasattr(_get_auth, "_instance"):
+        del _get_auth._instance
+    yield
+    if hasattr(_get_auth, "_instance"):
+        del _get_auth._instance
+
 
 @pytest.fixture
 def mock_cookies():
