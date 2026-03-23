@@ -17,9 +17,10 @@ def auto_push():
         print("Skipping push: cooldown active", file=sys.stderr)
         return
 
+    api = ProjectsAPI()
+
     project_id = config.project_id or config.cached_project_id
     if not project_id and config.project_name:
-        api = ProjectsAPI()
         project_id = api.resolve_project_id(config.project_name)
         if project_id:
             config.save_cached_project_id(project_id)
@@ -27,8 +28,6 @@ def auto_push():
     if not project_id:
         print("No project configured. Add <!-- claude-project: Name --> to CLAUDE.md", file=sys.stderr)
         sys.exit(1)
-
-    api = ProjectsAPI()
     gen = ContentGenerator(repo_name=config.repo_name)
 
     # Push status summary

@@ -49,42 +49,35 @@ class ProjectConfig:
     def repo_name(self) -> str:
         return os.path.basename(self.cwd)
 
-    @property
-    def cached_project_id(self) -> str | None:
+    def _read_cache(self) -> dict:
         cache_path = os.path.join(self.cwd, CACHE_FILE)
         if not os.path.exists(cache_path):
-            return None
-        with open(cache_path, "r") as f:
-            data = json.load(f)
-        return data.get("project_id")
-
-    def save_cached_project_id(self, project_id: str) -> None:
-        cache_path = os.path.join(self.cwd, CACHE_FILE)
-        data = {}
-        if os.path.exists(cache_path):
+            return {}
+        try:
             with open(cache_path, "r") as f:
-                data = json.load(f)
-        data["project_id"] = project_id
+                return json.load(f)
+        except (json.JSONDecodeError, ValueError):
+            return {}
+
+    @property
+    def cached_project_id(self) -> str | None:
+        return self._read_cache().get("project_id")
+
+    def _write_cache(self, updates: dict) -> None:
+        cache_path = os.path.join(self.cwd, CACHE_FILE)
+        data = self._read_cache()
+        data.update(updates)
         with open(cache_path, "w") as f:
             json.dump(data, f, indent=2)
 
+    def save_cached_project_id(self, project_id: str) -> None:
+        self._write_cache({"project_id": project_id})
+
     def is_push_allowed(self) -> bool:
-        cache_path = os.path.join(self.cwd, CACHE_FILE)
-        if not os.path.exists(cache_path):
-            return True
-        with open(cache_path, "r") as f:
-            data = json.load(f)
-        last_push = data.get("last_push_time")
+        last_push = self._read_cache().get("last_push_time")
         if last_push is None:
             return True
         return (time.time() - last_push) >= self.cooldown_seconds
 
     def record_push(self) -> None:
-        cache_path = os.path.join(self.cwd, CACHE_FILE)
-        data = {}
-        if os.path.exists(cache_path):
-            with open(cache_path, "r") as f:
-                data = json.load(f)
-        data["last_push_time"] = time.time()
-        with open(cache_path, "w") as f:
-            json.dump(data, f, indent=2)
+        self._write_cache({"last_push_time": time.time()})

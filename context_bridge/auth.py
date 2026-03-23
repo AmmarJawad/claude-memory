@@ -1,11 +1,13 @@
 """Authentication and HTTP client for claude.ai API."""
 
 import json
+import time
 
 import browser_cookie3
 from curl_cffi import requests
 
 CLAUDE_API_BASE = "https://claude.ai/api"
+COOKIE_CACHE_TTL = 300  # 5 minutes
 
 
 class ClaudeAuth:
@@ -13,13 +15,20 @@ class ClaudeAuth:
 
     def __init__(self):
         self._org_id = None
+        self._cached_cookies = None
+        self._cookie_cached_at = 0
 
     def get_cookie_header(self) -> str:
-        """Get all Claude cookies formatted as a cookie header."""
+        """Get all Claude cookies formatted as a cookie header (cached for 5 min)."""
+        now = time.time()
+        if self._cached_cookies and (now - self._cookie_cached_at) < COOKIE_CACHE_TTL:
+            return self._cached_cookies
         try:
             cj = browser_cookie3.chrome(domain_name='.claude.ai')
             cookies = [f"{cookie.name}={cookie.value}" for cookie in cj]
-            return "; ".join(cookies)
+            self._cached_cookies = "; ".join(cookies)
+            self._cookie_cached_at = now
+            return self._cached_cookies
         except Exception as e:
             raise RuntimeError(f"Could not get cookies from Chrome: {e}")
 

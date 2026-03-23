@@ -11,4 +11,4 @@ else
     PYTHON="python3"
 fi
 
-"$PYTHON" -m context_bridge.push --auto 2>/dev/null || true
+"$PYTHON" -m context_bridge.push --auto 2>>/tmp/context-bridge-hook.log || true
