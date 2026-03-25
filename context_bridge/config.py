@@ -1,16 +1,22 @@
 """Configuration for project mapping via CLAUDE.md tags."""
 
+import hashlib
 import json
 import os
 import re
 import time
+from pathlib import Path
 
-CACHE_FILE = ".claude-project-cache"
+STORAGE_DIR = Path.home() / ".claude-memory" / "project-cache"
 DEFAULT_COOLDOWN = 120  # 2 minutes
 
 
 class ProjectConfig:
-    """Reads project mapping from CLAUDE.md and manages local cache."""
+    """Reads project mapping from CLAUDE.md and manages local cache.
+
+    Cache is stored under ~/.claude-memory/project-cache/ (keyed by cwd hash),
+    consistent with all other claude-memory storage.
+    """
 
     def __init__(self, cwd: str = None, cooldown_seconds: int = DEFAULT_COOLDOWN):
         self.cwd = cwd or os.getcwd()
@@ -49,13 +55,18 @@ class ProjectConfig:
     def repo_name(self) -> str:
         return os.path.basename(self.cwd)
 
+    def _cache_path(self) -> Path:
+        """Cache file path under ~/.claude-memory/project-cache/, keyed by cwd hash."""
+        h = hashlib.sha1(self.cwd.encode()).hexdigest()[:12]
+        STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+        return STORAGE_DIR / f"{h}.json"
+
     def _read_cache(self) -> dict:
-        cache_path = os.path.join(self.cwd, CACHE_FILE)
-        if not os.path.exists(cache_path):
+        cache_path = self._cache_path()
+        if not cache_path.exists():
             return {}
         try:
-            with open(cache_path, "r") as f:
-                return json.load(f)
+            return json.loads(cache_path.read_text())
         except (json.JSONDecodeError, ValueError):
             return {}
 
@@ -64,11 +75,10 @@ class ProjectConfig:
         return self._read_cache().get("project_id")
 
     def _write_cache(self, updates: dict) -> None:
-        cache_path = os.path.join(self.cwd, CACHE_FILE)
+        cache_path = self._cache_path()
         data = self._read_cache()
         data.update(updates)
-        with open(cache_path, "w") as f:
-            json.dump(data, f, indent=2)
+        cache_path.write_text(json.dumps(data, indent=2))
 
     def save_cached_project_id(self, project_id: str) -> None:
         self._write_cache({"project_id": project_id})

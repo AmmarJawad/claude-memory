@@ -3,9 +3,19 @@
 
 import json
 import os
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
+
+import context_bridge.config as config_module
+
+
+@pytest.fixture(autouse=True)
+def isolated_cache(tmp_path, monkeypatch):
+    """Redirect project cache to tmp_path."""
+    cache_dir = tmp_path / "project-cache"
+    cache_dir.mkdir()
+    monkeypatch.setattr(config_module, "STORAGE_DIR", cache_dir)
 
 
 class TestFullPushFlow:
@@ -20,7 +30,6 @@ class TestFullPushFlow:
         subprocess.run(["git", "commit", "--allow-empty", "-m", "init"], cwd=str(tmp_path), capture_output=True)
 
         from context_bridge.config import ProjectConfig
-        from context_bridge.projects_api import ProjectsAPI
         from context_bridge.content_generator import ContentGenerator
 
         config = ProjectConfig(cwd=str(tmp_path))
@@ -42,16 +51,24 @@ class TestFullPushFlow:
 
         config = ProjectConfig(cwd=str(tmp_path))
 
-        # Mock the API to resolve project name
+        # Mock the API to resolve project name — need org + project list responses
         api = ProjectsAPI()
-        api._auth._org_id = "org-123"
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = [
+        mock_resp_orgs = MagicMock()
+        mock_resp_orgs.status_code = 200
+        mock_resp_orgs.json.return_value = [{"uuid": "org-123", "capabilities": ["chat"]}]
+
+        mock_resp_convos = MagicMock()
+        mock_resp_convos.status_code = 200
+        mock_resp_convos.json.return_value = [{"uuid": "c1"}]
+
+        mock_resp_projects = MagicMock()
+        mock_resp_projects.status_code = 200
+        mock_resp_projects.json.return_value = [
             {"uuid": "proj-abc", "name": "My App", "description": ""},
         ]
-        with patch("curl_cffi.requests.get", return_value=mock_resp):
+
+        with patch("curl_cffi.requests.get", side_effect=[mock_resp_orgs, mock_resp_convos, mock_resp_projects]):
             project_id = api.resolve_project_id(config.project_name)
             assert project_id == "proj-abc"
 

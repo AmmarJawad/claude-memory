@@ -1,8 +1,18 @@
 import json
 import os
-import tempfile
 
+import pytest
+
+import context_bridge.config as config_module
 from context_bridge.config import ProjectConfig
+
+
+@pytest.fixture(autouse=True)
+def isolated_cache(tmp_path, monkeypatch):
+    """Redirect project cache to tmp_path so tests don't touch ~/.claude-memory/."""
+    cache_dir = tmp_path / "project-cache"
+    cache_dir.mkdir()
+    monkeypatch.setattr(config_module, "STORAGE_DIR", cache_dir)
 
 
 class TestParseClaudeMd:
@@ -48,16 +58,13 @@ class TestProjectCache:
     def test_caches_resolved_uuid(self, tmp_path):
         config = ProjectConfig(cwd=str(tmp_path))
         config.save_cached_project_id("resolved-uuid-456")
-        cache_file = tmp_path / ".claude-project-cache"
-        assert cache_file.exists()
-        data = json.loads(cache_file.read_text())
-        assert data["project_id"] == "resolved-uuid-456"
+        assert config.cached_project_id == "resolved-uuid-456"
 
     def test_reads_cached_uuid(self, tmp_path):
-        cache_file = tmp_path / ".claude-project-cache"
-        cache_file.write_text(json.dumps({"project_id": "cached-uuid"}))
         config = ProjectConfig(cwd=str(tmp_path))
-        assert config.cached_project_id == "cached-uuid"
+        config.save_cached_project_id("cached-uuid")
+        config2 = ProjectConfig(cwd=str(tmp_path))
+        assert config2.cached_project_id == "cached-uuid"
 
     def test_returns_none_when_no_cache(self, tmp_path):
         config = ProjectConfig(cwd=str(tmp_path))
@@ -75,7 +82,6 @@ class TestCooldown:
         assert config.is_push_allowed() is False
 
     def test_cooldown_expires(self, tmp_path):
-        import time
         config = ProjectConfig(cwd=str(tmp_path), cooldown_seconds=0)
         config.record_push()
         assert config.is_push_allowed() is True

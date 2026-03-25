@@ -1019,12 +1019,18 @@ def get_conversation_summary(conversation_id: str, refresh: bool = False) -> str
 
 
 # ── claude.ai Project tools ───────────────────────────────────────────────────
+# Guarded import: if context_bridge is not installed, project tools are skipped
+# and all pre-existing tools continue to work.
 
-from context_bridge.projects_api import ProjectsAPI
-from context_bridge.config import ProjectConfig
-from context_bridge.content_generator import ContentGenerator
+try:
+    from context_bridge.projects_api import ProjectsAPI
+    from context_bridge.config import ProjectConfig
+    from context_bridge.content_generator import ContentGenerator
+    _PROJECTS_AVAILABLE = True
+except ImportError:
+    _PROJECTS_AVAILABLE = False
 
-_projects_api = ProjectsAPI()
+_projects_api = ProjectsAPI() if _PROJECTS_AVAILABLE else None
 
 
 def _resolve_project_id(project: str = None) -> str:
@@ -1058,7 +1064,11 @@ def _resolve_project_id(project: str = None) -> str:
     )
 
 
-@mcp.tool()
+if not _PROJECTS_AVAILABLE:
+    import sys
+    print("context_bridge package not found — project sync tools disabled", file=sys.stderr)
+
+
 def list_projects() -> str:
     """
     List all claude.ai Projects in your organization.
@@ -1069,7 +1079,6 @@ def list_projects() -> str:
     return _projects_api.list_projects()
 
 
-@mcp.tool()
 def list_project_docs(project: str = "") -> str:
     """
     List knowledge documents in a claude.ai Project.
@@ -1087,7 +1096,6 @@ def list_project_docs(project: str = "") -> str:
         return json.dumps({"error": str(e)})
 
 
-@mcp.tool()
 def get_project_doc(doc_id: str, project: str = "") -> str:
     """
     Read a specific knowledge document from a claude.ai Project.
@@ -1108,7 +1116,6 @@ def get_project_doc(doc_id: str, project: str = "") -> str:
         return json.dumps({"error": str(e)})
 
 
-@mcp.tool()
 def push_to_project(content: str, doc_name: str, project: str = "") -> str:
     """
     Push arbitrary content as a knowledge document to a claude.ai Project.
@@ -1135,7 +1142,6 @@ def push_to_project(content: str, doc_name: str, project: str = "") -> str:
         return json.dumps({"error": str(e)})
 
 
-@mcp.tool()
 def push_session_summary(project: str = "") -> str:
     """
     Auto-generate and push a status summary to a claude.ai Project.
@@ -1164,7 +1170,6 @@ def push_session_summary(project: str = "") -> str:
         return json.dumps({"error": str(e)})
 
 
-@mcp.tool()
 def push_todos(todos: list[str], project: str = "") -> str:
     """
     Push a TODO list to a claude.ai Project.
@@ -1190,6 +1195,15 @@ def push_todos(todos: list[str], project: str = "") -> str:
         }, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
+
+
+if _PROJECTS_AVAILABLE:
+    mcp.tool()(list_projects)
+    mcp.tool()(list_project_docs)
+    mcp.tool()(get_project_doc)
+    mcp.tool()(push_to_project)
+    mcp.tool()(push_session_summary)
+    mcp.tool()(push_todos)
 
 
 if __name__ == "__main__":

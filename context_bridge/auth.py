@@ -1,34 +1,25 @@
 """Authentication and HTTP client for claude.ai API."""
 
 import json
-import time
 
 import browser_cookie3
 from curl_cffi import requests
 
 CLAUDE_API_BASE = "https://claude.ai/api"
-COOKIE_CACHE_TTL = 300  # 5 minutes
 
 
 class ClaudeAuth:
-    """Handles cookie-based authentication and HTTP requests to claude.ai."""
+    """Handles cookie-based authentication and HTTP requests to claude.ai.
 
-    def __init__(self):
-        self._org_id = None
-        self._cached_cookies = None
-        self._cookie_cached_at = 0
+    Stateless by design: cookies and org ID are re-fetched on every call,
+    matching the upstream server.py pattern.
+    """
 
     def get_cookie_header(self) -> str:
-        """Get all Claude cookies formatted as a cookie header (cached for 5 min)."""
-        now = time.time()
-        if self._cached_cookies and (now - self._cookie_cached_at) < COOKIE_CACHE_TTL:
-            return self._cached_cookies
+        """Get all Claude cookies formatted as a cookie header."""
         try:
             cj = browser_cookie3.chrome(domain_name='.claude.ai')
-            cookies = [f"{cookie.name}={cookie.value}" for cookie in cj]
-            self._cached_cookies = "; ".join(cookies)
-            self._cookie_cached_at = now
-            return self._cached_cookies
+            return "; ".join(f"{c.name}={c.value}" for c in cj)
         except Exception as e:
             raise RuntimeError(f"Could not get cookies from Chrome: {e}")
 
@@ -79,10 +70,10 @@ class ClaudeAuth:
             )
 
     def get_organization_id(self) -> str:
-        """Get the organization ID that contains conversations."""
-        if self._org_id:
-            return self._org_id
+        """Get the organization ID that contains conversations.
 
+        Re-fetched on every call — no in-memory cache.
+        """
         orgs = self.get("organizations")
         if not orgs:
             raise RuntimeError("No organizations found")
@@ -97,12 +88,9 @@ class ClaudeAuth:
         for org in chat_orgs:
             org_id = org['uuid']
             try:
-                convos = self.get(f"organizations/{org_id}/chat_conversations")
-                if convos:
-                    self._org_id = org_id
+                if self.get(f"organizations/{org_id}/chat_conversations"):
                     return org_id
             except RuntimeError:
                 continue
 
-        self._org_id = chat_orgs[0]['uuid']
-        return self._org_id
+        return chat_orgs[0]['uuid']
